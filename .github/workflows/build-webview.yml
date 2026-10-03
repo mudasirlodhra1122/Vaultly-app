@@ -1,16 +1,16 @@
-name: Build WebView App (APK & AAB)
+name: Build Vaultly Ai App (APK & AAB)
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-# ===== AAP KI APP KI CONFIGURATION =====
+# ===== VAULTLY AI CONFIGURATION =====
 env:
-  APP_URL: "https://your-website.com"   # Yahan apni website ka URL likhein
-  APP_NAME: "My Website App"            # Yahan apni app ka name likhein
-  APP_ID: "com.mycompany.webviewapp"     # Yahan app ki Package ID likhein
-  LOGO_PATH: "icon.png"                 # Project root folder mein mojud icon file ka name
+  APP_URL: "https://vaultly.site.je"    # Aap ki Website ka URL
+  APP_NAME: "Vaultly Ai"                # Aap ki App ka Name
+  APP_ID: "com.vaultly.ai"              # App Package ID
+  LOGO_PATH: "logo.png"                 # Aap ki GitHub repo wali logo file
 
 jobs:
   build-app:
@@ -33,22 +33,22 @@ jobs:
 
       - name: Build Web App with Icon and URL
         run: |
-          # 1. HTML File Create (Website URL ke sath)
+          # 1. HTML File Create (Vaultly Ai URL ke sath)
           mkdir www
-          cat << EOF > www/index.html
+          cat << 'EOF' > www/index.html
           <!DOCTYPE html>
           <html>
           <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-              <title>${{ env.APP_NAME }}</title>
+              <title>Vaultly Ai</title>
               <style>
                   body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background-color: #ffffff; }
                   iframe { width: 100%; height: 100%; border: none; display: block; }
               </style>
           </head>
           <body>
-              <iframe src="${{ env.APP_URL }}" allow="geolocation; microphone; camera"></iframe>
+              <iframe src="https://vaultly.site.je" allow="geolocation; microphone; camera; display-capture"></iframe>
           </body>
           </html>
           EOF
@@ -59,19 +59,18 @@ jobs:
           cd myApp
           cp -r ../www/* www/
 
-          # 3. Custom App Icon Configuration
+          # 3. Custom App Icon Setup (logo.png)
           if [ -f "../${{ env.LOGO_PATH }}" ]; then
-            echo "Custom icon found! Configuring icon..."
-            cp "../${{ env.LOGO_PATH }}" www/icon.png
-            echo '<widget id="${{ env.APP_ID }}" version="1.0.0" xmlns="http://www.w3.org/ns/widgets"><icon src="www/icon.png" /></widget>' > config.xml.tmp
+            echo "Custom logo found! Setting up icon..."
+            cp "../${{ env.LOGO_PATH }}" www/logo.png
             sed -i '/<\/widget>/d' config.xml
-            echo '    <icon src="www/icon.png" />' >> config.xml
+            echo '    <icon src="www/logo.png" />' >> config.xml
             echo '</widget>' >> config.xml
           else
-            echo "No custom icon found at ${{ env.LOGO_PATH }}. Using default icon."
+            echo "Warning: logo.png not found in root repository."
           fi
 
-          # 4. Android Build
+          # 4. Android APK & AAB Build
           cordova platform add android@12.0.0
           cordova build android --debug
           cordova build android --release -- --packageType=bundle
@@ -79,12 +78,12 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Website-APK
+          name: Vaultly-Ai-APK
           path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Website-AAB
+          name: Vaultly-Ai-AAB
           path: myApp/platforms/android/app/build/outputs/bundle/release/app-release.aab
           
