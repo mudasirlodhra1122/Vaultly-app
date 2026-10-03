@@ -102,6 +102,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -135,6 +136,37 @@ jobs:
                   android:id="@+id/webView"
                   android:layout_width="match_parent"
                   android:layout_height="match_parent" />
+              <LinearLayout
+                  android:id="@+id/offlineView"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent"
+                  android:background="#FFFFFF"
+                  android:gravity="center"
+                  android:orientation="vertical"
+                  android:padding="32dp"
+                  android:visibility="gone">
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="No Internet Connection"
+                      android:textColor="#111111"
+                      android:textSize="22sp"
+                      android:textStyle="bold" />
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:layout_marginTop="12dp"
+                      android:gravity="center"
+                      android:text="Please check your internet and try again."
+                      android:textColor="#555555"
+                      android:textSize="15sp" />
+                  <Button
+                      android:id="@+id/retryButton"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:layout_marginTop="24dp"
+                      android:text="Retry" />
+              </LinearLayout>
           </RelativeLayout>
           EOF
 
@@ -142,14 +174,25 @@ jobs:
           cat << 'EOF' > app/src/main/java/com/vaultly/ai/MainActivity.java
           package com.vaultly.ai;
 
+          import android.graphics.Bitmap;
+          import android.net.ConnectivityManager;
+          import android.net.NetworkCapabilities;
           import android.os.Bundle;
+          import android.view.View;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
+          import android.widget.Button;
+          import android.widget.Toast;
           import androidx.appcompat.app.AppCompatActivity;
 
           public class MainActivity extends AppCompatActivity {
+              private static final String APP_URL = "https://vaultly.site.je";
               private WebView webView;
+              private View offlineView;
+              private boolean hasError = false;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -157,13 +200,59 @@ jobs:
                   setContentView(R.layout.activity_main);
 
                   webView = findViewById(R.id.webView);
-                  webView.setWebViewClient(new WebViewClient());
+                  offlineView = findViewById(R.id.offlineView);
+                  Button retryButton = findViewById(R.id.retryButton);
+
+                  webView.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                          hasError = false;
+                      }
+
+                      @Override
+                      public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                          if (request.isForMainFrame()) {
+                              hasError = true;
+                              showOffline(true);
+                          }
+                      }
+
+                      @Override
+                      public void onPageFinished(WebView view, String url) {
+                          if (!hasError) {
+                              showOffline(false);
+                          }
+                      }
+                  });
+
+                  retryButton.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          if (isOnline()) {
+                              webView.loadUrl(APP_URL);
+                          } else {
+                              Toast.makeText(MainActivity.this, "Still no internet", Toast.LENGTH_SHORT).show();
+                          }
+                      }
+                  });
 
                   WebSettings webSettings = webView.getSettings();
                   webSettings.setJavaScriptEnabled(true);
                   webSettings.setDomStorageEnabled(true);
 
-                  webView.loadUrl("https://vaultly.site.je");
+                  webView.loadUrl(APP_URL);
+              }
+
+              private void showOffline(boolean show) {
+                  offlineView.setVisibility(show ? View.VISIBLE : View.GONE);
+                  webView.setVisibility(show ? View.INVISIBLE : View.VISIBLE);
+              }
+
+              private boolean isOnline() {
+                  ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+                  if (cm == null || cm.getActiveNetwork() == null) return false;
+                  NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+                  return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
               }
 
               @Override
