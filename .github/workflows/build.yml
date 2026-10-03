@@ -30,9 +30,9 @@ jobs:
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/mipmap-hdpi
 
-          # Set App Icon if logo.png exists
+          # Set App Icon: convert logo.png into a real 72x72 PNG (works even if the file is JPG/WebP renamed)
           if [ -f "logo.png" ]; then
-            cp logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
+            convert "logo.png[0]" -resize 72x72! PNG32:app/src/main/res/mipmap-hdpi/ic_launcher.png || rm -f app/src/main/res/mipmap-hdpi/ic_launcher.png
           fi
 
           # 1. Root build.gradle
@@ -120,8 +120,8 @@ jobs:
           </manifest>
           EOF
 
-          # If no logo.png, remove the icon line so the build doesn't fail
-          if [ ! -f "logo.png" ]; then
+          # If no valid icon was produced, remove the icon line so the build doesn't fail
+          if [ ! -f "app/src/main/res/mipmap-hdpi/ic_launcher.png" ]; then
             sed -i '/android:icon=/d' app/src/main/AndroidManifest.xml
           fi
 
