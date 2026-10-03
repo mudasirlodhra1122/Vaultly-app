@@ -19,18 +19,21 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Create Android Project Structure
         run: |
           mkdir -p app/src/main/java/com/vaultly/ai
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/mipmap-hdpi
-          
+
           # Copy Logo if exists
           if [ -f "logo.png" ]; then
             cp logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
           fi
 
-          # Build.gradle (Project)
+          # Root Build.gradle
           cat << 'EOF' > build.gradle
           buildscript {
               repositories {
@@ -38,7 +41,7 @@ jobs:
                   mavenCentral()
               }
               dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  classpath 'com.android.tools.build:gradle:8.1.4'
               }
           }
           allprojects {
@@ -162,7 +165,7 @@ jobs:
           EOF
 
       - name: Setup Gradle
-        run: gradle wrapper --gradle-version 8.5
+        run: gradle wrapper --gradle-version 8.2
 
       - name: Build APK and AAB
         run: |
