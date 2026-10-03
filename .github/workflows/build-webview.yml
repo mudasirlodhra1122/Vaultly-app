@@ -30,7 +30,7 @@ jobs:
           cordova create myApp com.vaultly.ai "Vaultly Ai"
           cd myApp
 
-          # Create HTML with Webview
+          # Create Webview index.html
           mkdir -p www
           cat << 'EOF' > www/index.html
           <!DOCTYPE html>
@@ -61,10 +61,11 @@ jobs:
           # Add Android platform
           cordova platform add android@11.0.0
 
-          # Build APK & AAB using wrapper
-          cd platforms/android
-          chmod +x gradlew
-          ./gradlew assembleDebug bundleRelease
+          # Build Debug APK
+          cordova build android --debug
+
+          # Build Release AAB (Bundle)
+          cordova build android --release -- --packageType=bundle
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -77,3 +78,4 @@ jobs:
         with:
           name: Vaultly-Ai-AAB
           path: myApp/platforms/android/app/build/outputs/bundle/release/app-release.aab
+          
