@@ -8,20 +8,25 @@ on:
 jobs:
   build-app:
     runs-on: ubuntu-latest
-    container:
-      image: mobiledevops/android-sdk-image:34.0.0
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build Web App Project
-        run: |
-          npm install -g cordova
-          cordova create myApp com.vaultly.ai "Vaultly Ai"
-          cd myApp
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-          # Create HTML with Webview
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build App with Capacitor
+        run: |
+          # 1. Create Web Folder
           mkdir -p www
           cat << 'EOF' > www/index.html
           <!DOCTYPE html>
@@ -41,28 +46,32 @@ jobs:
           </html>
           EOF
 
-          # Copy logo.png if available
-          if [ -f "../logo.png" ]; then
-            cp ../logo.png www/logo.png
-            sed -i '/<\/widget>/d' config.xml
-            echo '    <icon src="www/logo.png" />' >> config.xml
-            echo '</widget>' >> config.xml
+          # 2. Initialize Capacitor Project
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Vaultly Ai" "com.vaultly.ai" --web-dir www
+          npx cap add android
+
+          # 3. Add Logo Icon if available
+          if [ -f "logo.png" ]; then
+            mkdir -p android/app/src/main/res/mipmap-hdpi
+            cp logo.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
           fi
 
-          # Add Android platform & Build
-          cordova platform add android@11.0.0
-          cordova build android --debug
-          cordova build android --release -- --packageType=bundle
+          # 4. Build APK & AAB
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug bundleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-APK
-          path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-AAB
-          path: myApp/platforms/android/app/build/outputs/bundle/release/app-release.aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
           
