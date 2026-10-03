@@ -19,9 +19,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Create Android Project Structure
         run: |
           mkdir -p app/src/main/java/com/vaultly/ai
@@ -164,7 +161,7 @@ jobs:
           }
           EOF
 
-      - name: Setup Gradle
+      - name: Setup Gradle Wrapper
         run: gradle wrapper --gradle-version 8.2
 
       - name: Build APK and AAB
