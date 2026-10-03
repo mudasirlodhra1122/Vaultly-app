@@ -8,21 +8,12 @@ on:
 jobs:
   build-app:
     runs-on: ubuntu-latest
+    container:
+      image: mobiledevops/android-sdk-image:34.0.0
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Set up Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Build Web App Project
         run: |
@@ -30,7 +21,7 @@ jobs:
           cordova create myApp com.vaultly.ai "Vaultly Ai"
           cd myApp
 
-          # Create Webview index.html
+          # Create HTML with Webview
           mkdir -p www
           cat << 'EOF' > www/index.html
           <!DOCTYPE html>
@@ -58,13 +49,9 @@ jobs:
             echo '</widget>' >> config.xml
           fi
 
-          # Add Android platform
+          # Add Android platform & Build
           cordova platform add android@11.0.0
-
-          # Build Debug APK
           cordova build android --debug
-
-          # Build Release AAB (Bundle)
           cordova build android --release -- --packageType=bundle
 
       - name: Upload APK Artifact
