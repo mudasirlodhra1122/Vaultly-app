@@ -19,7 +19,12 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Create Android Project Structure
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
+
+      - name: Create Android Project Files
         run: |
           mkdir -p app/src/main/java/com/vaultly/ai
           mkdir -p app/src/main/res/layout
@@ -161,13 +166,8 @@ jobs:
           }
           EOF
 
-      - name: Setup Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.2
-
       - name: Build APK and AAB
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug bundleRelease
+        run: gradle assembleDebug bundleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
