@@ -13,53 +13,165 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK 21
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21'
+          java-version: '17'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build App with Capacitor
+      - name: Generate Native Android Project
         run: |
-          # 1. Create Web Folder
-          mkdir -p www
-          cat << 'EOF' > www/index.html
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-              <title>Vaultly Ai</title>
-              <style>
-                  body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background-color: #ffffff; }
-                  iframe { width: 100%; height: 100%; border: none; display: block; }
-              </style>
-          </head>
-          <body>
-              <iframe src="https://vaultly.site.je" allow="geolocation; microphone; camera; display-capture"></iframe>
-          </body>
-          </html>
-          EOF
+          mkdir -p app/src/main/java/com/vaultly/ai
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/mipmap-hdpi
 
-          # 2. Initialize Capacitor Project
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "Vaultly Ai" "com.vaultly.ai" --web-dir www
-          npx cap add android
-
-          # 3. Add Logo Icon if available
+          # Set App Icon if logo.png exists
           if [ -f "logo.png" ]; then
-            mkdir -p android/app/src/main/res/mipmap-hdpi
-            cp logo.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            cp logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
           fi
 
-          # 4. Build APK & AAB
-          cd android
+          # 1. Root build.gradle
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.1'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+
+          # 2. settings.gradle
+          echo "include ':app'" > settings.gradle
+
+          # 3. gradle.properties
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+          # 4. App build.gradle
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.vaultly.ai'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.vaultly.ai"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+
+          # 5. AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="Vaultly Ai"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # 6. Activity Layout XML
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+              <WebView
+                  android:id="@+id/webView"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+          </RelativeLayout>
+          EOF
+
+          # 7. MainActivity Java Code
+          cat << 'EOF' > app/src/main/java/com/vaultly/ai/MainActivity.java
+          package com.vaultly.ai;
+
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+
+                  webView = findViewById(R.id.webView);
+                  webView.setWebViewClient(new WebViewClient());
+
+                  WebSettings webSettings = webView.getSettings();
+                  webSettings.setJavaScriptEnabled(true);
+                  webSettings.setDomStorageEnabled(true);
+
+                  webView.loadUrl("https://vaultly.site.je");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.0.2
+
+      - name: Build APK and AAB
+        run: |
           chmod +x gradlew
           ./gradlew assembleDebug bundleRelease
 
@@ -67,11 +179,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-AAB
-          path: android/app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/release/app-release.aab
           
