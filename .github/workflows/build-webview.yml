@@ -5,13 +5,6 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-# ===== VAULTLY AI CONFIGURATION =====
-env:
-  APP_URL: "https://vaultly.site.je"    # Aap ki Website ka URL
-  APP_NAME: "Vaultly Ai"                # Aap ki App ka Name
-  APP_ID: "com.vaultly.ai"              # App Package ID
-  LOGO_PATH: "logo.png"                 # Aap ki GitHub repo wali logo file
-
 jobs:
   build-app:
     runs-on: ubuntu-latest
@@ -20,70 +13,171 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build Web App with Icon and URL
+      - name: Create Android Project Structure
         run: |
-          # 1. HTML File Create (Vaultly Ai URL ke sath)
-          mkdir www
-          cat << 'EOF' > www/index.html
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-              <title>Vaultly Ai</title>
-              <style>
-                  body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background-color: #ffffff; }
-                  iframe { width: 100%; height: 100%; border: none; display: block; }
-              </style>
-          </head>
-          <body>
-              <iframe src="https://vaultly.site.je" allow="geolocation; microphone; camera; display-capture"></iframe>
-          </body>
-          </html>
-          EOF
-
-          # 2. Cordova Setup
-          npm install -g cordova
-          cordova create myApp ${{ env.APP_ID }} "${{ env.APP_NAME }}"
-          cd myApp
-          cp -r ../www/* www/
-
-          # 3. Custom App Icon Setup (logo.png)
-          if [ -f "../${{ env.LOGO_PATH }}" ]; then
-            echo "Custom logo found! Setting up icon..."
-            cp "../${{ env.LOGO_PATH }}" www/logo.png
-            sed -i '/<\/widget>/d' config.xml
-            echo '    <icon src="www/logo.png" />' >> config.xml
-            echo '</widget>' >> config.xml
-          else
-            echo "Warning: logo.png not found in root repository."
+          mkdir -p app/src/main/java/com/vaultly/ai
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/mipmap-hdpi
+          
+          # Copy Logo if exists
+          if [ -f "logo.png" ]; then
+            cp logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
           fi
 
-          # 4. Android APK & AAB Build
-          cordova platform add android@12.0.0
-          cordova build android --debug
-          cordova build android --release -- --packageType=bundle
+          # Build.gradle (Project)
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+
+          # Settings.gradle
+          echo "include ':app'" > settings.gradle
+
+          # App Build.gradle
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.vaultly.ai'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.vaultly.ai"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+
+          # AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="Vaultly Ai"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Layout XML
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+              <WebView
+                  android:id="@+id/webView"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+          </RelativeLayout>
+          EOF
+
+          # MainActivity.java
+          cat << 'EOF' > app/src/main/java/com/vaultly/ai/MainActivity.java
+          package com.vaultly.ai;
+
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+
+                  webView = findViewById(R.id.webView);
+                  webView.setWebViewClient(new WebViewClient());
+
+                  WebSettings webSettings = webView.getSettings();
+                  webSettings.setJavaScriptEnabled(true);
+                  webSettings.setDomStorageEnabled(true);
+
+                  webView.loadUrl("https://vaultly.site.je");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Setup Gradle
+        run: gradle wrapper --gradle-version 8.5
+
+      - name: Build APK and AAB
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug bundleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-APK
-          path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Vaultly-Ai-AAB
-          path: myApp/platforms/android/app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/release/app-release.aab
           
